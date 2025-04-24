@@ -56,14 +56,16 @@ public extension Octokit {
     ///   - owner: The user or organization that owns the repositories.
     ///   - repository: The name of the repository.
     ///   - perPage: Results per page (max 100). Default: `30`.
+    ///   - page: Which page to return results for. Default: `1`.
     ///   - completion: Callback for the outcome of the fetch.
     @discardableResult
     func listReleases(_ session: RequestKitURLSession = URLSession.shared,
                       owner: String,
                       repository: String,
                       perPage: Int = 30,
+                      page: Int = 1,
                       completion: @escaping (_ response: Result<[Release], Error>) -> Void) -> URLSessionDataTaskProtocol? {
-        let router = ReleaseRouter.listReleases(configuration, owner, repository, perPage)
+        let router = ReleaseRouter.listReleases(configuration, owner, repository, perPage, page)
         return router.load(session, dateDecodingStrategy: .formatted(Time.rfc3339DateFormatter), expectedResultType: [Release].self) { releases, error in
             if let error = error {
                 completion(.failure(error))
@@ -104,8 +106,8 @@ public extension Octokit {
     ///   - repository: The name of the repository.
     ///   - perPage: Results per page (max 100). Default: `30`.2
     @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
-    func listReleases(_ session: RequestKitURLSession = URLSession.shared, owner: String, repository: String, perPage: Int = 30) async throws -> [Release] {
-        let router = ReleaseRouter.listReleases(configuration, owner, repository, perPage)
+    func listReleases(_ session: RequestKitURLSession = URLSession.shared, owner: String, repository: String, perPage: Int = 30, page: Int = 1) async throws -> [Release] {
+        let router = ReleaseRouter.listReleases(configuration, owner, repository, perPage, page)
         return try await router.load(session, dateDecodingStrategy: .formatted(Time.rfc3339DateFormatter), expectedResultType: [Release].self)
     }
 
@@ -211,7 +213,7 @@ public extension Octokit {
 // MARK: Router
 
 enum ReleaseRouter: JSONPostRouter {
-    case listReleases(Configuration, String, String, Int)
+    case listReleases(Configuration, String, String, Int, Int)
     case getLatestRelease(Configuration, String, String)
     case getReleaseByTag(Configuration, String, String, String)
     case postRelease(Configuration, String, String, String, String?, String?, String?, Bool, Bool, Bool)
@@ -219,7 +221,7 @@ enum ReleaseRouter: JSONPostRouter {
 
     var configuration: Configuration {
         switch self {
-        case let .listReleases(config, _, _, _): return config
+        case let .listReleases(config, _, _, _, _): return config
         case let .getLatestRelease(config, _, _): return config
         case let .getReleaseByTag(config, _, _, _): return config
         case let .postRelease(config, _, _, _, _, _, _, _, _, _): return config
@@ -251,8 +253,8 @@ enum ReleaseRouter: JSONPostRouter {
 
     var params: [String: Any] {
         switch self {
-        case let .listReleases(_, _, _, perPage):
-            return ["per_page": "\(perPage)"]
+        case let .listReleases(_, _, _, perPage, page):
+            return ["per_page": "\(perPage)", "page": "\(page)"]
         case .getLatestRelease:
             return [:]
         case .getReleaseByTag:
@@ -282,7 +284,7 @@ enum ReleaseRouter: JSONPostRouter {
 
     var path: String {
         switch self {
-        case let .listReleases(_, owner, repo, _):
+        case let .listReleases(_, owner, repo, _, _):
             return "repos/\(owner)/\(repo)/releases"
         case let .getLatestRelease(_, owner, repo):
             return "/repos/\(owner)/\(repo)/releases/latest"
